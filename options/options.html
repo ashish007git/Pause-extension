@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pause+ Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main>
+    <h1>Pause+ Settings</h1>
+
+    <section>
+      <h2>Schedule</h2>
+      <p class="hint">
+        When should visits to paused sites be intercepted? Overnight ranges
+        (e.g. 21:00–02:00) run into the next morning; identical start and end
+        means the whole day.
+      </p>
+
+      <div class="schedule-row">
+        <label class="check">
+          <input type="checkbox" id="weekday-active" />
+          Weekdays
+        </label>
+        <span class="times">
+          <input type="time" id="weekday-start" aria-label="Weekday start time" />
+          <span aria-hidden="true">–</span>
+          <input type="time" id="weekday-end" aria-label="Weekday end time" />
+        </span>
+      </div>
+
+      <div class="schedule-row">
+        <label class="check">
+          <input type="checkbox" id="weekend-active" />
+          Weekends
+        </label>
+        <span class="times">
+          <input type="time" id="weekend-start" aria-label="Weekend start time" />
+          <span aria-hidden="true">–</span>
+          <input type="time" id="weekend-end" aria-label="Weekend end time" />
+        </span>
+      </div>
+    </section>
+
+    <section>
+      <h2>The pause</h2>
+      <div class="field-row">
+        <label for="pause-seconds">Seconds before the buttons appear</label>
+        <input type="number" id="pause-seconds" min="0" max="300" step="1" />
+      </div>
+      <label class="check">
+        <input type="checkbox" id="require-intent" />
+        Ask what I'm there to do before letting me continue
+      </label>
+    </section>
+
+    <section>
+      <h2>Paused sites</h2>
+      <p class="hint">Visits to these sites (and their subdomains) get paused.</p>
+      <ul id="site-list"></ul>
+      <form id="add-site-form">
+        <input type="text" id="add-site" placeholder="example.com"
+               aria-label="Add a site to pause" autocomplete="off" spellcheck="false" />
+        <button type="submit">Add</button>
+      </form>
+      <p id="add-error" role="alert" hidden>That doesn't look like a domain.</p>
+    </section>
+
+    <p id="saved" role="status" aria-live="polite"></p>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

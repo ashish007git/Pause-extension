@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pause</title>
+  <link rel="stylesheet" href="pause.css" />
+</head>
+<body>
+  <main>
+    <svg class="butterfly" viewBox="0 0 200 160" role="img" aria-label="A butterfly">
+      <g class="wing wing-left">
+        <path d="M97 78 C 60 30, 18 22, 12 52 C 7 76, 40 92, 92 84 Z" fill="var(--wing-a)" />
+        <path d="M96 86 C 55 92, 28 112, 40 132 C 50 148, 84 128, 97 92 Z" fill="var(--wing-b)" />
+        <circle cx="46" cy="56" r="7" fill="var(--wing-spot)" />
+        <circle cx="58" cy="116" r="5" fill="var(--wing-spot)" />
+      </g>
+      <g class="wing wing-right">
+        <path d="M103 78 C 140 30, 182 22, 188 52 C 193 76, 160 92, 108 84 Z" fill="var(--wing-a)" />
+        <path d="M104 86 C 145 92, 172 112, 160 132 C 150 148, 116 128, 103 92 Z" fill="var(--wing-b)" />
+        <circle cx="154" cy="56" r="7" fill="var(--wing-spot)" />
+        <circle cx="142" cy="116" r="5" fill="var(--wing-spot)" />
+      </g>
+      <ellipse cx="100" cy="88" rx="5" ry="26" fill="var(--body)" />
+      <circle cx="100" cy="58" r="7" fill="var(--body)" />
+      <path d="M96 53 C 88 40, 80 36, 74 38 M104 53 C 112 40, 120 36, 126 38"
+            stroke="var(--body)" stroke-width="2" fill="none" stroke-linecap="round" />
+    </svg>
+
+    <h1>Take a breath</h1>
+    <p class="sub">You were headed to <strong id="site">a distracting site</strong></p>
+
+    <textarea id="intent" placeholder="What are you here to do?"
+              aria-label="What are you here to do?" rows="2" hidden></textarea>
+
+    <div id="actions" hidden>
+      <button id="back" class="primary">Take me back</button>
+      <button id="continue">Continue this once</button>
+    </div>
+    <p id="note" role="status"></p>
+  </main>
+  <script type="module" src="pause.js"></script>
+</body>
+</html>

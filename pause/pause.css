@@ -1,0 +1,190 @@
+:root {
+  --text: #4a4458;
+  --text-soft: #6a6480;
+  --wing-a: #b9a7e0;
+  --wing-b: #e8b4c8;
+  --wing-spot: rgba(255, 255, 255, 0.55);
+  --body: #5d5470;
+  --button-bg: #4a4458;
+  --button-fg: #fdf9f4;
+  --ghost-border: rgba(74, 68, 88, 0.35);
+  --field-bg: rgba(255, 255, 255, 0.6);
+  --sky: linear-gradient(180deg, #fdeee3 0%, #ece4f5 48%, #d8e6f0 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6e1f0;
+    --text-soft: #a8a2bd;
+    --wing-a: #8d7bc0;
+    --wing-b: #b98aa5;
+    --wing-spot: rgba(255, 255, 255, 0.25);
+    --body: #cfc8e0;
+    --button-bg: #e6e1f0;
+    --button-fg: #2a2740;
+    --ghost-border: rgba(230, 225, 240, 0.35);
+    --field-bg: rgba(255, 255, 255, 0.08);
+    --sky: linear-gradient(180deg, #2a2740 0%, #363355 52%, #1e2233 100%);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100vh;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  background: var(--sky);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-align: center;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 2rem;
+  max-width: 34rem;
+}
+
+.butterfly {
+  width: clamp(140px, 28vmin, 220px);
+  animation: float 7s ease-in-out infinite alternate;
+}
+
+.wing {
+  animation: flap 3.4s ease-in-out infinite alternate;
+}
+
+.wing-left {
+  transform-origin: 100px 84px;
+}
+
+.wing-right {
+  transform-origin: 100px 84px;
+}
+
+@keyframes float {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(10px);
+  }
+}
+
+@keyframes flap {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .butterfly,
+  .wing {
+    animation: none;
+  }
+}
+
+h1 {
+  font-size: 1.9rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.sub {
+  color: var(--text-soft);
+  font-size: 1.02rem;
+  overflow-wrap: anywhere;
+}
+
+.sub strong {
+  color: var(--text);
+}
+
+#note {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  min-height: 1.2em;
+  overflow-wrap: anywhere;
+}
+
+#intent {
+  width: min(24rem, 80vw);
+  resize: none;
+  border: 1px solid var(--ghost-border);
+  border-radius: 0.7rem;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  padding: 0.7rem 0.9rem;
+  outline: none;
+}
+
+#intent:focus {
+  border-color: var(--text-soft);
+}
+
+/* JS drops the `hidden` attribute at reveal time (keeping the controls out
+   of the tab order until then); this pair only provides the fade-in. */
+#intent,
+#actions {
+  opacity: 0;
+  transition: opacity 1.8s ease;
+}
+
+.revealed #intent,
+.revealed #actions {
+  opacity: 1;
+}
+
+#actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.4rem;
+}
+
+button {
+  font: inherit;
+  font-size: 0.98rem;
+  padding: 0.7rem 1.5rem;
+  border-radius: 99px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+button:hover:enabled {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.primary {
+  background: var(--button-bg);
+  color: var(--button-fg);
+}
+
+#continue {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--ghost-border);
+}

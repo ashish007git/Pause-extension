@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pause+</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>Pause+</h1>
+    <label class="switch" title="Master toggle">
+      <input type="checkbox" id="enabled" />
+      <span class="track" aria-hidden="true"></span>
+      <span class="visually-hidden">Enable Pause+</span>
+    </label>
+  </header>
+
+  <p id="status" role="status">…</p>
+
+  <section id="focus-idle" hidden>
+    <h2>Focus boost</h2>
+    <p class="hint">Arm pausing for the next few hours, whatever the schedule says.</p>
+    <div class="row">
+      <button class="boost" data-hours="1">1h</button>
+      <button class="boost" data-hours="2">2h</button>
+      <button class="boost" data-hours="4">4h</button>
+      <div class="custom">
+        <input type="number" id="custom-hours" min="1" max="24" step="1" placeholder="h"
+               aria-label="Custom focus boost duration in hours" />
+        <button id="custom-start">Go</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="focus-active" hidden>
+    <h2>Focus boost</h2>
+    <p class="hint"><span id="focus-remaining"></span> remaining</p>
+    <button id="cancel-focus">End focus boost</button>
+  </section>
+
+  <footer>
+    <button id="open-options" class="link">Settings</button>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+:root {
+  --bg: #fdfbf7;
+  --text: #4a4458;
+  --text-soft: #6a6480;
+  --accent: #4f46e5;
+  --border: rgba(74, 68, 88, 0.18);
+  --button-bg: rgba(79, 70, 229, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #26233a;
+    --text: #e6e1f0;
+    --text-soft: #a8a2bd;
+    --accent: #928df5;
+    --border: rgba(230, 225, 240, 0.18);
+    --button-bg: rgba(146, 141, 245, 0.12);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 280px;
+  padding: 14px 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+h1 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+
+#status {
+  color: var(--text-soft);
+}
+
+.hint {
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--button-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+.custom {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+#custom-hours {
+  width: 44px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+#cancel-focus {
+  width: 100%;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* Toggle switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--border);
+  transition: background 0.15s ease;
+}
+
+.track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked + .track {
+  background: var(--accent);
+}
+
+.switch input:checked + .track::after {
+  transform: translateX(16px);
+}
+
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

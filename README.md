@@ -68,6 +68,9 @@ tests/               Vitest unit + behavioral tests (chrome API stubbed)
 - Interception uses `webNavigation.onBeforeNavigate` → redirect to the internal pause page, because the armed/not-armed decision depends on schedule and focus state that static blocking rules can't express.
 - Passes are keyed by tab **and** domain, so a pass covers one site in one tab — reopened or new tabs naturally re-trigger the pause.
 
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full module graph (diagram),
+a step-by-step trace of a blocked navigation, and a per-file reference table.
+
 ## Development
 
 ```sh

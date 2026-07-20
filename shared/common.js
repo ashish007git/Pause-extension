@@ -15,12 +15,25 @@ export const DEFAULT_SETTINGS = {
     'tiktok.com': true,
     'facebook.com': true,
   },
+  // Parallel map to `sites`, keyed by the same domain: domain -> daily minutes
+  // (integer > 0). Absent/0 means no timer for that site. Kept separate so
+  // matchSite() and the on/off toggle logic never need to know timers exist.
+  siteTimers: {},
+  overBudgetMult: 4,
+  bypassOpenSeconds: 5,
+  bypassClicks: 4,
 };
 
 export const DEFAULT_STATE = {
   focusUntil: null,
   // One-time passes: tab id (as string) -> domain allowed in that tab.
   allowances: {},
+  // Seconds spent per timed domain for the local day.
+  usage: { day: null, byDomain: {} },
+  // Active accrual session, timestamp-based so it survives the MV3 worker
+  // being torn down: elapsed is always computed as `now - startedAt` on the
+  // next flush, never with a live counter.
+  session: null,
 };
 
 export async function getSettings() {
@@ -34,6 +47,7 @@ export async function getSettings() {
       weekend: { ...DEFAULT_SETTINGS.schedule.weekend, ...settings.schedule?.weekend },
     },
     sites: settings.sites ?? structuredClone(DEFAULT_SETTINGS.sites),
+    siteTimers: settings.siteTimers ?? {},
   };
 }
 
@@ -87,6 +101,62 @@ export function matchSite(hostname, sites) {
     if (host === site || host.endsWith('.' + site)) return site;
   }
   return null;
+}
+
+// 'YYYY-MM-DD' in local time — the boundary a day's usage rolls over on.
+export function localDayKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Zeroes usage in place when the local day has rolled over. Returns true if
+// it did.
+export function rolloverUsage(usage, dayKey) {
+  if (usage.day === dayKey) return false;
+  usage.day = dayKey;
+  usage.byDomain = {};
+  return true;
+}
+
+// Flushes the active session's elapsed time into usage.byDomain, then
+// restarts the session's clock from `now` (flush-and-continue) so the next
+// flush only ever accounts for the time since the last one. A no-op if
+// there's no active session.
+export function accrueSession(state, now, dayKey) {
+  rolloverUsage(state.usage, dayKey);
+  if (!state.session) return;
+  const domain = state.session.domain;
+  const elapsedSeconds = Math.max(0, (now - state.session.startedAt) / 1000);
+  state.usage.byDomain[domain] = (state.usage.byDomain[domain] ?? 0) + elapsedSeconds;
+  state.session.startedAt = now;
+}
+
+// The blocklist entry for `hostname`, but only if it also has a daily timer
+// configured — the domain accrual and over-budget escalation care about.
+export function timedDomain(settings, hostname) {
+  const site = matchSite(hostname, settings.sites);
+  if (!site) return null;
+  return settings.siteTimers?.[site] > 0 ? site : null;
+}
+
+export function usageSeconds(state, domain) {
+  return state.usage.byDomain[domain] ?? 0;
+}
+
+export function budgetSeconds(settings, domain) {
+  return (settings.siteTimers?.[domain] ?? 0) * 60;
+}
+
+export function isOverBudget(settings, state, domain) {
+  const budget = budgetSeconds(settings, domain);
+  if (budget <= 0) return false;
+  return usageSeconds(state, domain) >= budget;
+}
+
+export function remainingSeconds(settings, state, domain) {
+  return Math.max(0, budgetSeconds(settings, domain) - usageSeconds(state, domain));
 }
 
 function toMinutes(hhmm) {

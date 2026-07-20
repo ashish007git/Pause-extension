@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SETTINGS,
+  accrueSession,
+  budgetSeconds,
   clearAllowance,
   formatRemaining,
   getSettings,
@@ -8,9 +10,15 @@ import {
   hasAllowance,
   inSchedule,
   isArmed,
+  isOverBudget,
+  localDayKey,
   matchSite,
   normalizeDomain,
   pruneFocus,
+  remainingSeconds,
+  rolloverUsage,
+  timedDomain,
+  usageSeconds,
 } from '../shared/common.js';
 
 // Local dates: 2026-07-13 Mon, 2026-07-15 Wed, 2026-07-18 Sat, 2026-07-19 Sun.
@@ -207,6 +215,13 @@ describe('getSettings (storage merge)', () => {
     expect(settings.schedule.weekday).toEqual({ active: true, start: '10:00', end: '18:00' });
     expect(settings.schedule.weekend).toEqual(DEFAULT_SETTINGS.schedule.weekend);
   });
+
+  it('stored siteTimers are taken as-is; missing falls back to {}', async () => {
+    stubStorage({ siteTimers: { 'youtube.com': 30 } });
+    expect((await getSettings()).siteTimers).toEqual({ 'youtube.com': 30 });
+    stubStorage({ enabled: false });
+    expect((await getSettings()).siteTimers).toEqual({});
+  });
 });
 
 describe('allowances (one-time tab passes)', () => {
@@ -240,6 +255,122 @@ describe('formatRemaining', () => {
   it('rounds up partial minutes and floors at zero', () => {
     expect(formatRemaining(61_000, 0)).toBe('2m');
     expect(formatRemaining(0, 1000)).toBe('0m');
+  });
+});
+
+describe('localDayKey', () => {
+  it('formats in local time, zero-padded', () => {
+    expect(localDayKey(new Date(2026, 6, 5, 23, 59))).toBe('2026-07-05');
+    expect(localDayKey(new Date(2026, 0, 1, 0, 0))).toBe('2026-01-01');
+  });
+});
+
+describe('rolloverUsage', () => {
+  it('is a no-op when the day has not changed', () => {
+    const usage = { day: '2026-07-19', byDomain: { 'youtube.com': 42 } };
+    expect(rolloverUsage(usage, '2026-07-19')).toBe(false);
+    expect(usage.byDomain).toEqual({ 'youtube.com': 42 });
+  });
+
+  it('resets byDomain and stamps the new day when it changed', () => {
+    const usage = { day: '2026-07-19', byDomain: { 'youtube.com': 42 } };
+    expect(rolloverUsage(usage, '2026-07-20')).toBe(true);
+    expect(usage.day).toBe('2026-07-20');
+    expect(usage.byDomain).toEqual({});
+  });
+
+  it('stamps the day when there was none yet, without clearing (nothing to clear)', () => {
+    const usage = { day: null, byDomain: {} };
+    expect(rolloverUsage(usage, '2026-07-20')).toBe(true);
+    expect(usage.day).toBe('2026-07-20');
+  });
+});
+
+describe('accrueSession', () => {
+  it('adds elapsed seconds to the session domain and restarts the clock', () => {
+    const state = {
+      usage: { day: '2026-07-20', byDomain: {} },
+      session: { domain: 'youtube.com', startedAt: 1000 },
+    };
+    accrueSession(state, 1000 + 30_000, '2026-07-20');
+    expect(state.usage.byDomain['youtube.com']).toBe(30);
+    expect(state.session.startedAt).toBe(31000);
+
+    // Flush again after another 10s: only the new delta is added.
+    accrueSession(state, 31000 + 10_000, '2026-07-20');
+    expect(state.usage.byDomain['youtube.com']).toBe(40);
+  });
+
+  it('is a no-op when there is no active session (still applies rollover)', () => {
+    const state = { usage: { day: '2026-07-19', byDomain: { 'x.com': 5 } }, session: null };
+    accrueSession(state, 2000, '2026-07-20');
+    expect(state.session).toBeNull();
+    expect(state.usage.day).toBe('2026-07-20');
+    expect(state.usage.byDomain).toEqual({});
+  });
+
+  it('zeroes prior usage on a day rollover before accruing the new session', () => {
+    const state = {
+      usage: { day: '2026-07-19', byDomain: { 'youtube.com': 999 } },
+      session: { domain: 'youtube.com', startedAt: 1000 },
+    };
+    accrueSession(state, 1000 + 5_000, '2026-07-20');
+    expect(state.usage.byDomain['youtube.com']).toBe(5);
+  });
+});
+
+describe('timedDomain', () => {
+  const settings = {
+    sites: { 'youtube.com': true, 'reddit.com': true, 'x.com': false },
+    siteTimers: { 'youtube.com': 30, 'reddit.com': 0 },
+  };
+
+  it('returns the site only when it is paused and has a positive timer', () => {
+    expect(timedDomain(settings, 'www.youtube.com')).toBe('youtube.com');
+  });
+
+  it('returns null when there is no timer set', () => {
+    expect(timedDomain(settings, 'reddit.com')).toBeNull();
+    expect(timedDomain({ ...settings, siteTimers: {} }, 'youtube.com')).toBeNull();
+  });
+
+  it('returns null when the site is not paused at all', () => {
+    expect(timedDomain(settings, 'x.com')).toBeNull();
+    expect(timedDomain(settings, 'example.com')).toBeNull();
+  });
+});
+
+describe('budget helpers', () => {
+  const settings = { siteTimers: { 'youtube.com': 1 } }; // 1 minute = 60s
+
+  it('budgetSeconds converts minutes to seconds; 0 for untimed domains', () => {
+    expect(budgetSeconds(settings, 'youtube.com')).toBe(60);
+    expect(budgetSeconds(settings, 'reddit.com')).toBe(0);
+  });
+
+  it('usageSeconds reads byDomain, defaulting to 0', () => {
+    const state = { usage: { day: null, byDomain: { 'youtube.com': 12 } } };
+    expect(usageSeconds(state, 'youtube.com')).toBe(12);
+    expect(usageSeconds(state, 'reddit.com')).toBe(0);
+  });
+
+  it('isOverBudget is false under budget, true at/after the boundary', () => {
+    const under = { usage: { day: null, byDomain: { 'youtube.com': 59 } } };
+    const atBoundary = { usage: { day: null, byDomain: { 'youtube.com': 60 } } };
+    expect(isOverBudget(settings, under, 'youtube.com')).toBe(false);
+    expect(isOverBudget(settings, atBoundary, 'youtube.com')).toBe(true);
+  });
+
+  it('isOverBudget is always false for an untimed domain', () => {
+    const state = { usage: { day: null, byDomain: { 'reddit.com': 10_000 } } };
+    expect(isOverBudget(settings, state, 'reddit.com')).toBe(false);
+  });
+
+  it('remainingSeconds counts down to zero and floors there', () => {
+    const state = { usage: { day: null, byDomain: { 'youtube.com': 40 } } };
+    expect(remainingSeconds(settings, state, 'youtube.com')).toBe(20);
+    const over = { usage: { day: null, byDomain: { 'youtube.com': 90 } } };
+    expect(remainingSeconds(settings, over, 'youtube.com')).toBe(0);
   });
 });
 

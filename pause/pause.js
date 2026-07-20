@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, getSettings } from '../shared/common.js';
 const params = new URLSearchParams(location.search);
 const target = params.get('target');
 const domain = params.get('domain');
+const mult = Math.max(1, Number(params.get('mult')) || 1);
 
 const intentField = document.getElementById('intent');
 const continueButton = document.getElementById('continue');
@@ -42,9 +43,10 @@ intentField.addEventListener('input', () => {
   continueButton.disabled = intentField.value.trim() === '';
 });
 
-const seconds = Number.isFinite(settings.pauseSeconds)
+const baseSeconds = Number.isFinite(settings.pauseSeconds)
   ? Math.min(Math.max(settings.pauseSeconds, 0), 300)
   : DEFAULT_SETTINGS.pauseSeconds;
+const seconds = Math.min(Math.max(baseSeconds * mult, 0), 600);
 
 // No countdown on display — the actions simply fade in when the pause
 // has run its course. `hidden` until then keeps them out of the tab

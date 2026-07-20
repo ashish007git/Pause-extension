@@ -306,6 +306,65 @@ describe('budget accrual (active tab time tracking)', () => {
   });
 });
 
+describe('over-budget escalation', () => {
+  const timedSettings = { ...armedSettings, siteTimers: { 'youtube.com': 1 }, overBudgetMult: 4 }; // 60s budget
+
+  it('appends mult to the pause URL once the daily budget is spent', async () => {
+    await setup({
+      settings: timedSettings,
+      state: {
+        allowances: {},
+        focusUntil: null,
+        usage: { day: null, byDomain: { 'youtube.com': 60 } },
+        session: null,
+      },
+    });
+    await background.onNavigate(nav('https://youtube.com/', 1));
+    expect(lastPauseRedirect().url).toContain('mult=4');
+  });
+
+  it('omits mult while still under budget', async () => {
+    await setup({
+      settings: timedSettings,
+      state: {
+        allowances: {},
+        focusUntil: null,
+        usage: { day: null, byDomain: { 'youtube.com': 10 } },
+        session: null,
+      },
+    });
+    await background.onNavigate(nav('https://youtube.com/', 1));
+    expect(lastPauseRedirect().url).not.toContain('mult=');
+  });
+
+  it('omits mult for a site with no timer configured, regardless of stored usage', async () => {
+    await setup({ settings: armedSettings });
+    await background.onNavigate(nav('https://reddit.com/', 1));
+    expect(lastPauseRedirect().url).not.toContain('mult=');
+  });
+});
+
+describe('getStatus usage', () => {
+  it('reports used/budget seconds for timed sites only', async () => {
+    await setup({
+      settings: { ...armedSettings, siteTimers: { 'youtube.com': 2, 'reddit.com': 0 } },
+      state: {
+        allowances: {},
+        focusUntil: null,
+        usage: { day: null, byDomain: { 'youtube.com': 30 } },
+        session: null,
+      },
+    });
+    const status = await background.handleMessage({ type: 'getStatus' }, {});
+    expect(status.usage).toEqual([{ domain: 'youtube.com', usedSec: 30, budgetSec: 120 }]);
+  });
+
+  it('is an empty array when no site has a timer', async () => {
+    const status = await background.handleMessage({ type: 'getStatus' }, {});
+    expect(status.usage).toEqual([]);
+  });
+});
+
 describe('lifecycle', () => {
   it('browser startup wipes stale passes and recreates the badge alarm', async () => {
     await setup({

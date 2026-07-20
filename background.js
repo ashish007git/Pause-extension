@@ -1,5 +1,6 @@
 import {
   accrueSession,
+  budgetSeconds,
   clearAllowance,
   getSettings,
   getState,
@@ -7,11 +8,13 @@ import {
   hasAllowance,
   inSchedule,
   isArmed,
+  isOverBudget,
   localDayKey,
   matchSite,
   pruneFocus,
   saveState,
   timedDomain,
+  usageSeconds,
 } from './shared/common.js';
 
 // All state writes go through this queue: concurrent handlers (navigation,
@@ -125,9 +128,12 @@ export async function onNavigate(details) {
   if (hasAllowance(state, details.tabId, domain)) return;
   if (!isArmed(settings, state)) return;
 
-  const pauseUrl =
+  let pauseUrl =
     chrome.runtime.getURL('pause/pause.html') +
     `?target=${encodeURIComponent(details.url)}&domain=${encodeURIComponent(domain)}`;
+  if (isOverBudget(settings, state, domain)) {
+    pauseUrl += `&mult=${encodeURIComponent(settings.overBudgetMult)}`;
+  }
   try {
     await chrome.tabs.update(details.tabId, { url: pauseUrl });
   } catch {
@@ -187,11 +193,19 @@ export async function handleMessage(msg, sender) {
     }
     case 'getStatus': {
       const { settings, state } = await loadAll();
+      const usage = Object.entries(settings.siteTimers ?? {})
+        .filter(([, minutes]) => minutes > 0)
+        .map(([domain]) => ({
+          domain,
+          usedSec: usageSeconds(state, domain),
+          budgetSec: budgetSeconds(settings, domain),
+        }));
       return {
         armed: isArmed(settings, state),
         enabled: settings.enabled,
         inSchedule: inSchedule(settings.schedule),
         focusUntil: state.focusUntil,
+        usage,
       };
     }
   }

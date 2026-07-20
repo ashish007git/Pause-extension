@@ -6,6 +6,34 @@ const focusIdle = document.getElementById('focus-idle');
 const focusActive = document.getElementById('focus-active');
 const focusRemaining = document.getElementById('focus-remaining');
 const customHours = document.getElementById('custom-hours');
+const usageSection = document.getElementById('usage');
+const usageList = document.getElementById('usage-list');
+
+function renderUsage(usage) {
+  usageList.replaceChildren();
+  if (!usage?.length) {
+    usageSection.hidden = true;
+    return;
+  }
+  usageSection.hidden = false;
+  const now = Date.now();
+  for (const { domain, usedSec, budgetSec } of usage) {
+    const li = document.createElement('li');
+    li.classList.toggle('over', usedSec >= budgetSec);
+
+    const label = document.createElement('span');
+    label.className = 'domain';
+    label.textContent = domain;
+
+    const remaining = document.createElement('span');
+    remaining.className = 'remaining';
+    remaining.textContent =
+      usedSec >= budgetSec ? 'Over budget' : `${formatRemaining(now + (budgetSec - usedSec) * 1000, now)} left`;
+
+    li.append(label, remaining);
+    usageList.append(li);
+  }
+}
 
 async function refresh() {
   let status;
@@ -18,8 +46,11 @@ async function refresh() {
     statusLine.textContent = 'Couldn’t reach the extension — try reopening this popup.';
     focusIdle.hidden = true;
     focusActive.hidden = true;
+    usageSection.hidden = true;
     return;
   }
+
+  renderUsage(status.usage);
 
   enabledToggle.checked = status.enabled;
 

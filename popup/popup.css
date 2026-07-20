@@ -105,6 +105,33 @@ button:hover {
   width: 100%;
 }
 
+#usage-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#usage-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#usage-list .domain {
+  overflow-wrap: anywhere;
+}
+
+#usage-list .remaining {
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+#usage-list li.over .remaining {
+  color: var(--accent);
+}
+
 footer {
   border-top: 1px solid var(--border);
   padding-top: 10px;

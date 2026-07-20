@@ -10,6 +10,10 @@ const continueButton = document.getElementById('continue');
 const backButton = document.getElementById('back');
 const note = document.getElementById('note');
 const actions = document.getElementById('actions');
+const bypassSection = document.getElementById('bypass');
+const bypassArena = document.getElementById('bypass-arena');
+const bypassButton = document.getElementById('bypass-btn');
+const bypassCount = document.getElementById('bypass-count');
 
 if (domain) document.getElementById('site').textContent = domain;
 
@@ -21,7 +25,7 @@ backButton.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'back' });
 });
 
-continueButton.addEventListener('click', async () => {
+async function attemptContinue() {
   continueButton.disabled = true;
   const response = await chrome.runtime.sendMessage({ type: 'continue', domain, target });
   if (!response?.ok) {
@@ -29,7 +33,9 @@ continueButton.addEventListener('click', async () => {
     continueButton.disabled = false;
     note.textContent = 'That didn’t work — the link may no longer be paused. Try it from the address bar.';
   }
-});
+}
+
+continueButton.addEventListener('click', attemptContinue);
 
 let settings;
 try {
@@ -68,18 +74,73 @@ function startCountdown() {
   }, seconds * 1000);
 }
 
+// Over budget: a deliberate, skill-based way to skip the wait. A button that
+// jumps to a new spot on every click opens after bypassOpenSeconds; catching
+// it bypassClicks times auto-fires Continue. Hard enough to rule out an
+// accidental unlock, learnable enough that it stops being a wall.
+const overBudget = usable && mult > 1;
+bypassSection.hidden = !overBudget;
+
+const bypassOpenSeconds = Number.isFinite(settings.bypassOpenSeconds)
+  ? settings.bypassOpenSeconds
+  : DEFAULT_SETTINGS.bypassOpenSeconds;
+const bypassClicks = Number.isFinite(settings.bypassClicks)
+  ? Math.max(1, settings.bypassClicks)
+  : DEFAULT_SETTINGS.bypassClicks;
+
+let bypassOpenTimer = null;
+let clicksRemaining = bypassClicks;
+
+function repositionBypassButton() {
+  const arena = bypassArena.getBoundingClientRect();
+  const maxX = Math.max(0, arena.width - bypassButton.offsetWidth);
+  const maxY = Math.max(0, arena.height - bypassButton.offsetHeight);
+  bypassButton.style.left = `${Math.random() * maxX}px`;
+  bypassButton.style.top = `${Math.random() * maxY}px`;
+}
+
+function resetBypass() {
+  clearTimeout(bypassOpenTimer);
+  bypassButton.hidden = true;
+  clicksRemaining = bypassClicks;
+  bypassCount.textContent = clicksRemaining;
+}
+
+function startBypass() {
+  if (!overBudget) return;
+  resetBypass();
+  bypassOpenTimer = setTimeout(() => {
+    repositionBypassButton();
+    bypassButton.hidden = false;
+  }, bypassOpenSeconds * 1000);
+}
+
+bypassButton.addEventListener('click', () => {
+  clicksRemaining -= 1;
+  bypassCount.textContent = Math.max(0, clicksRemaining);
+  if (clicksRemaining <= 0) {
+    bypassButton.hidden = true;
+    attemptContinue();
+  } else {
+    repositionBypassButton();
+  }
+});
+
 // Chrome throttles setTimeout in background tabs, so leaving mid-countdown
 // and coming back would otherwise find it done "for free". Restarting from
-// full on every hide keeps the pause honest.
+// full on every hide keeps the pause (and the bypass) honest.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearTimeout(countdownTimer);
     actions.hidden = true;
     if (requireIntent) intentField.hidden = true;
     document.body.classList.remove('revealed');
+    resetBypass();
   } else {
     startCountdown();
+    startBypass();
   }
 });
 
 startCountdown();
+startBypass();

@@ -188,3 +188,28 @@ button:disabled {
   color: var(--text);
   border-color: var(--ghost-border);
 }
+
+#bypass {
+  width: min(22rem, 84vw);
+  margin-top: 0.4rem;
+}
+
+#bypass p {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+#bypass-arena {
+  position: relative;
+  height: 5rem;
+  border: 1px dashed var(--ghost-border);
+  border-radius: 0.9rem;
+}
+
+#bypass-btn {
+  position: absolute;
+  background: var(--button-bg);
+  color: var(--button-fg);
+  transition: left 0.12s ease, top 0.12s ease;
+}

@@ -37,6 +37,15 @@
       <button id="back" class="primary">Take me back</button>
       <button id="continue">Continue this once</button>
     </div>
+
+    <div id="bypass" hidden>
+      <p>You're over today's time budget for this site. Catch the button
+        <strong id="bypass-count">4</strong> more times to skip the wait.</p>
+      <div id="bypass-arena">
+        <button id="bypass-btn" type="button" hidden>Catch me</button>
+      </div>
+    </div>
+
     <p id="note" role="status"></p>
   </main>
   <script type="module" src="pause.js"></script>

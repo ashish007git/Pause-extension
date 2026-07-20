@@ -53,11 +53,19 @@
         <input type="checkbox" id="require-intent" />
         Ask what I'm there to do before letting me continue
       </label>
+      <div class="field-row">
+        <label for="over-budget-mult">Pause multiplier once a site's daily timer runs out</label>
+        <input type="number" id="over-budget-mult" min="1" max="20" step="1" />
+      </div>
     </section>
 
     <section>
       <h2>Paused sites</h2>
-      <p class="hint">Visits to these sites (and their subdomains) get paused.</p>
+      <p class="hint">
+        Visits to these sites (and their subdomains) get paused. Give a site a
+        daily minutes budget to escalate the pause once you've used it up
+        — leave it blank for no limit.
+      </p>
       <ul id="site-list"></ul>
       <form id="add-site-form">
         <input type="text" id="add-site" placeholder="example.com"

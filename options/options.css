@@ -132,8 +132,23 @@ input[type="checkbox"] {
   text-decoration: line-through;
 }
 
-#site-list .remove {
+#site-list .timer-field {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#site-list .timer {
+  width: 56px;
+}
+
+#site-list .unit {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+#site-list .remove {
   background: none;
   border: none;
   color: var(--danger);

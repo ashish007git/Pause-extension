@@ -73,18 +73,44 @@ function renderSites() {
     label.className = 'domain';
     label.textContent = domain;
 
+    const timerField = document.createElement('span');
+    timerField.className = 'timer-field';
+    const timerInput = document.createElement('input');
+    timerInput.type = 'number';
+    timerInput.className = 'timer';
+    timerInput.min = '0';
+    timerInput.step = '1';
+    timerInput.placeholder = 'no limit';
+    timerInput.value = settings.siteTimers[domain] || '';
+    timerInput.setAttribute('aria-label', `Daily minutes for ${domain}`);
+    timerInput.addEventListener('change', () => {
+      const value = Number(timerInput.value);
+      if (timerInput.value !== '' && Number.isFinite(value) && value > 0) {
+        settings.siteTimers[domain] = Math.round(value);
+      } else {
+        delete settings.siteTimers[domain];
+        timerInput.value = '';
+      }
+      persist();
+    });
+    const timerUnit = document.createElement('span');
+    timerUnit.className = 'unit';
+    timerUnit.textContent = 'min/day';
+    timerField.append(timerInput, timerUnit);
+
     const remove = document.createElement('button');
     remove.className = 'remove';
     remove.textContent = 'remove';
     remove.setAttribute('aria-label', `Remove ${domain}`);
     remove.addEventListener('click', () => {
       delete settings.sites[domain];
+      delete settings.siteTimers[domain];
       renderSites();
       addInput.focus(); // rebuilding the list would drop keyboard focus to <body>
       persist();
     });
 
-    li.append(toggle, label, remove);
+    li.append(toggle, label, timerField, remove);
     siteList.append(li);
   }
 }
@@ -121,6 +147,15 @@ el('require-intent').addEventListener('change', (e) => {
   persist();
 });
 
+el('over-budget-mult').addEventListener('change', (e) => {
+  const value = Number(e.target.value);
+  if (e.target.value !== '' && Number.isFinite(value) && value >= 1 && value <= 20) {
+    settings.overBudgetMult = Math.round(value);
+    persist();
+  }
+  e.target.value = settings.overBudgetMult; // an empty/invalid field must not save 0
+});
+
 let savedTimer;
 async function persist() {
   const fresh = await getSettings();
@@ -138,6 +173,7 @@ function renderAll() {
   renderSchedule('weekend');
   el('pause-seconds').value = settings.pauseSeconds;
   el('require-intent').checked = settings.requireIntent;
+  el('over-budget-mult').value = settings.overBudgetMult;
   renderSites();
 }
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ALL_DAY = { active: true, start: '00:00', end: '00:00' };
 const OFF = { active: false, start: '09:00', end: '18:00' };
@@ -20,6 +20,18 @@ function makeChrome() {
       update: vi.fn(async () => ({})),
       goBack: vi.fn(async () => {}),
       onRemoved: { addListener: vi.fn() },
+      onActivated: { addListener: vi.fn() },
+      onUpdated: { addListener: vi.fn() },
+      query: vi.fn(async () => []),
+    },
+    windows: {
+      get: vi.fn(async () => ({ focused: true })),
+      onFocusChanged: { addListener: vi.fn() },
+      WINDOW_ID_NONE: -1,
+    },
+    idle: {
+      setDetectionInterval: vi.fn(),
+      onStateChanged: { addListener: vi.fn() },
     },
     runtime: {
       getURL: (path) => `chrome-extension://test-id/${path}`,
@@ -201,6 +213,96 @@ describe('focus boost', () => {
     );
     await background.handleMessage({ type: 'focus', hours: 1 }, {});
     expect(chromeEnv.local.state.allowances).toEqual({});
+  });
+});
+
+describe('budget accrual (active tab time tracking)', () => {
+  const timedSettings = { ...armedSettings, siteTimers: { 'youtube.com': 30 } };
+
+  function focusedTab(url, windowId = 1) {
+    chromeEnv.chrome.tabs.query.mockResolvedValue([{ url, windowId, active: true }]);
+    chromeEnv.chrome.windows.get.mockResolvedValue({ focused: true });
+  }
+
+  beforeEach(async () => {
+    await setup({ settings: timedSettings });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 20, 12, 0, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('accrues elapsed time for the active, focused, timed tab across syncs', async () => {
+    focusedTab('https://www.youtube.com/watch?v=1');
+    await background.syncActiveSession();
+    expect(chromeEnv.local.state.session).toMatchObject({ domain: 'youtube.com' });
+    expect(chromeEnv.local.state.usage.byDomain['youtube.com'] ?? 0).toBe(0);
+
+    vi.setSystemTime(new Date(2026, 6, 20, 12, 0, 30));
+    await background.syncActiveSession();
+    expect(chromeEnv.local.state.usage.byDomain['youtube.com']).toBe(30);
+  });
+
+  it('does not accrue when the window is not focused', async () => {
+    focusedTab('https://youtube.com/');
+    chromeEnv.chrome.windows.get.mockResolvedValue({ focused: false });
+    await background.syncActiveSession();
+    expect(chromeEnv.local.state.session).toBeNull();
+  });
+
+  it('does not accrue for a site with no timer configured', async () => {
+    focusedTab('https://reddit.com/');
+    await background.syncActiveSession();
+    expect(chromeEnv.local.state.session).toBeNull();
+  });
+
+  it('flushes and clears the session when the window loses OS focus', async () => {
+    focusedTab('https://youtube.com/');
+    await background.syncActiveSession();
+    vi.setSystemTime(new Date(2026, 6, 20, 12, 0, 20));
+
+    const onFocusChanged = chromeEnv.chrome.windows.onFocusChanged.addListener.mock.calls[0][0];
+    await onFocusChanged(chromeEnv.chrome.windows.WINDOW_ID_NONE);
+
+    expect(chromeEnv.local.state.session).toBeNull();
+    expect(chromeEnv.local.state.usage.byDomain['youtube.com']).toBe(20);
+  });
+
+  it('flushes and clears the session when the user goes idle, and resumes when active again', async () => {
+    focusedTab('https://youtube.com/');
+    await background.syncActiveSession();
+    vi.setSystemTime(new Date(2026, 6, 20, 12, 0, 15));
+
+    const onIdle = chromeEnv.chrome.idle.onStateChanged.addListener.mock.calls[0][0];
+    await onIdle('idle');
+    expect(chromeEnv.local.state.session).toBeNull();
+    expect(chromeEnv.local.state.usage.byDomain['youtube.com']).toBe(15);
+
+    // Idle time itself must not accrue.
+    vi.setSystemTime(new Date(2026, 6, 20, 12, 5, 0));
+    await onIdle('active');
+    expect(chromeEnv.local.state.usage.byDomain['youtube.com']).toBe(15);
+    expect(chromeEnv.local.state.session).toMatchObject({ domain: 'youtube.com' });
+  });
+
+  it('zeroes stale usage on a day rollover before accruing new time', async () => {
+    await setup({
+      settings: timedSettings,
+      state: {
+        allowances: {},
+        focusUntil: null,
+        usage: { day: '2026-07-19', byDomain: { 'youtube.com': 999 } },
+        session: null,
+      },
+    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 20, 9, 0, 0));
+    focusedTab('https://youtube.com/');
+    await background.syncActiveSession();
+    expect(chromeEnv.local.state.usage.day).toBe('2026-07-20');
+    expect(chromeEnv.local.state.usage.byDomain['youtube.com'] ?? 0).toBe(0);
   });
 });
 

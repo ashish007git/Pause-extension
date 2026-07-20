@@ -3,7 +3,7 @@
   "name": "Pause+ — Mindful Browsing",
   "version": "0.1.0",
   "description": "Pause before distracting sites, with weekday/weekend schedules, focus boosts, and one-time passes.",
-  "permissions": ["storage", "alarms", "webNavigation"],
+  "permissions": ["storage", "alarms", "webNavigation", "idle", "tabs"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

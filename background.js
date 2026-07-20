@@ -1,4 +1,5 @@
 import {
+  accrueSession,
   clearAllowance,
   getSettings,
   getState,
@@ -6,9 +7,11 @@ import {
   hasAllowance,
   inSchedule,
   isArmed,
+  localDayKey,
   matchSite,
   pruneFocus,
   saveState,
+  timedDomain,
 } from './shared/common.js';
 
 // All state writes go through this queue: concurrent handlers (navigation,
@@ -36,6 +39,63 @@ async function loadAll() {
   const [settings, state] = await Promise.all([getSettings(), getState()]);
   pruneFocus(state);
   return { settings, state };
+}
+
+// Tracked in memory, not storage: chrome.idle only tells us about changes
+// going forward, so this reflects state since the worker last woke up.
+// Defaulting to 'active' is safe — the next real idle/active event corrects it.
+let idleState = 'active';
+
+// The domain eligible for budget accrual right now, or null: the active tab
+// of the focused window, on a timed site, while the user isn't idle. This is
+// what decision #1 ("active focused tab only") boils down to.
+async function resolveActiveDomain(settings) {
+  if (idleState !== 'active') return null;
+  let tabs;
+  try {
+    tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  } catch {
+    return null;
+  }
+  const tab = tabs[0];
+  if (!tab?.url) return null;
+  try {
+    const win = await chrome.windows.get(tab.windowId);
+    if (!win.focused) return null; // Chrome itself may not have OS focus
+  } catch {
+    return null;
+  }
+  let url;
+  try {
+    url = new URL(tab.url);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  return timedDomain(settings, url.hostname);
+}
+
+// Flushes whatever session is active into usage, then starts a fresh one iff
+// the currently active tab is on a timed site. Safe to call repeatedly —
+// each call only ever accounts for time since the previous flush.
+export async function syncActiveSession() {
+  const settings = await getSettings();
+  const domain = await resolveActiveDomain(settings);
+  const now = Date.now();
+  const dayKey = localDayKey(new Date(now));
+  await mutateState((state) => {
+    accrueSession(state, now, dayKey);
+    state.session = domain ? { domain, startedAt: now } : null;
+  });
+}
+
+async function flushAndClearSession() {
+  const now = Date.now();
+  const dayKey = localDayKey(new Date(now));
+  await mutateState((state) => {
+    accrueSession(state, now, dayKey);
+    state.session = null;
+  });
 }
 
 // Runs on both onBeforeNavigate and onCommitted: the former alone misses
@@ -150,6 +210,7 @@ export async function onBrowserStartup() {
     s.allowances = {};
   });
   chrome.alarms.create('tick', { periodInMinutes: 1 });
+  chrome.idle.setDetectionInterval(60);
   await updateBadge();
 }
 
@@ -172,11 +233,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleMessage(msg, sender).then(sendResponse, () => sendResponse({ ok: false }));
   return true; // keep the message channel open for the async response
 });
+chrome.tabs.onActivated.addListener(() => syncActiveSession());
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!changeInfo.url || !tab.active) return;
+  syncActiveSession();
+});
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  return windowId === chrome.windows.WINDOW_ID_NONE ? flushAndClearSession() : syncActiveSession();
+});
+chrome.idle.onStateChanged.addListener((newState) => {
+  idleState = newState;
+  return newState === 'active' ? syncActiveSession() : flushAndClearSession();
+});
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'tick') updateBadge();
+  if (alarm.name === 'tick') {
+    syncActiveSession().then(updateBadge);
+  }
 });
 chrome.runtime.onStartup.addListener(onBrowserStartup);
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create('tick', { periodInMinutes: 1 });
+  chrome.idle.setDetectionInterval(60);
   updateBadge();
 });

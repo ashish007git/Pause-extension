@@ -9,6 +9,7 @@ const intentField = document.getElementById('intent');
 const continueButton = document.getElementById('continue');
 const backButton = document.getElementById('back');
 const note = document.getElementById('note');
+const actions = document.getElementById('actions');
 
 if (domain) document.getElementById('site').textContent = domain;
 
@@ -51,13 +52,34 @@ const seconds = Math.min(Math.max(baseSeconds * mult, 0), 600);
 // No countdown on display — the actions simply fade in when the pause
 // has run its course. `hidden` until then keeps them out of the tab
 // order and the accessibility tree, not just invisible.
-setTimeout(() => {
-  if (requireIntent) intentField.hidden = false;
-  document.getElementById('actions').hidden = false;
-  requestAnimationFrame(() => {
+let countdownTimer = null;
+
+function startCountdown() {
+  clearTimeout(countdownTimer);
+  countdownTimer = setTimeout(() => {
+    if (requireIntent) intentField.hidden = false;
+    actions.hidden = false;
     requestAnimationFrame(() => {
-      document.body.classList.add('revealed');
-      (requireIntent ? intentField : backButton).focus();
+      requestAnimationFrame(() => {
+        document.body.classList.add('revealed');
+        (requireIntent ? intentField : backButton).focus();
+      });
     });
-  });
-}, seconds * 1000);
+  }, seconds * 1000);
+}
+
+// Chrome throttles setTimeout in background tabs, so leaving mid-countdown
+// and coming back would otherwise find it done "for free". Restarting from
+// full on every hide keeps the pause honest.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearTimeout(countdownTimer);
+    actions.hidden = true;
+    if (requireIntent) intentField.hidden = true;
+    document.body.classList.remove('revealed');
+  } else {
+    startCountdown();
+  }
+});
+
+startCountdown();
